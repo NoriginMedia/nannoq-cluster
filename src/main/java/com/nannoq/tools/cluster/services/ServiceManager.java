@@ -28,8 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ServiceManager {
     private static final Logger logger = LoggerFactory.getLogger(ServiceManager.class.getSimpleName());
 
-    private static final String NANNOQ_SERVICE_ANNOUNCE_ADDRESS = "com.service.manager.services.announce";
-    private static final String NANNOQ_SERVICE_SERVICE_NAME = "service-manager-service-discovery";
+    private static final String NANNOQ_SERVICE_ANNOUNCE_ADDRESS = "com.nannoq.services.manager.announce";
+    private static final String NANNOQ_SERVICE_SERVICE_NAME = "nannoq-service-manager-service-discovery";
 
     private static final int NOT_FOUND = 404;
     private static final int INTERNAL_ERROR = 500;
@@ -48,7 +48,7 @@ public class ServiceManager {
     }
 
     private ServiceManager(Vertx vertx) {
-        this.vertx = vertx;
+        ServiceManager.vertx = vertx;
         openDiscovery();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> ServiceManager.getInstance().kill()));
@@ -126,9 +126,9 @@ public class ServiceManager {
     }
 
     @Fluent
-    public ServiceManager consumeApi(@Nonnull APIManager.API api,
+    public ServiceManager consumeApi(@Nonnull String path,
                                      @Nonnull Handler<AsyncResult<HttpClient>> resultHandler) {
-        return getApi(api, resultHandler);
+        return getApi(path, resultHandler);
     }
 
     @Fluent
@@ -182,24 +182,24 @@ public class ServiceManager {
         serviceAnnounceConsumer = null;
     }
 
-    private ServiceManager getApi(APIManager.API api, Handler<AsyncResult<HttpClient>> resultHandler) {
-        logger.debug("Getting API: " + api.name());
+    private ServiceManager getApi(String path, Handler<AsyncResult<HttpClient>> resultHandler) {
+        logger.debug("Getting API: " + path);
 
-        Object existingService = fetchedServices.get(api.name());
+        Object existingService = fetchedServices.get(path);
 
         if (existingService != null) {
             logger.debug("Returning fetched Api...");
 
             resultHandler.handle(Future.succeededFuture((HttpClient) existingService));
         } else {
-            HttpEndpoint.getClient(serviceDiscovery, new JsonObject().put("name", api.name()), ar -> {
+            HttpEndpoint.getClient(serviceDiscovery, new JsonObject().put("name", path), ar -> {
                 if (ar.failed()) {
                     logger.error("Unable to fetch API...");
 
                     resultHandler.handle(ServiceException.fail(404, "API not found..."));
                 } else {
                     HttpClient client = ar.result();
-                    fetchedServices.put(api.name(), client);
+                    fetchedServices.put(path, client);
 
                     resultHandler.handle(Future.succeededFuture(client));
                 }
@@ -301,11 +301,10 @@ public class ServiceManager {
         if (t instanceof ServiceException) {
             ServiceException serviceException = (ServiceException) t;
 
-            logger.error("Unable to publish service: " +
-                    serviceException.failureCode() + " : " +
-                    serviceException.getMessage());
+            logger.error(serviceException.failureCode() + " : " +
+                    serviceException.getMessage(), t);
         } else {
-            logger.error("Unable to publish service: " + t.getMessage());
+            logger.error(t.getMessage(), t);
         }
     }
 }
