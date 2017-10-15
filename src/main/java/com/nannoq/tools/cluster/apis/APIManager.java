@@ -28,13 +28,19 @@ public class APIManager {
     private static final String API_CIRCUIT_BREAKER_BASE = "com.apis.circuitbreaker.";
 
     private final Vertx vertx;
+    private final APIHostProducer apiHostProducer;
     private Map<String, CircuitBreaker> circuitBreakerMap;
     private Map<String, MessageConsumer<JsonObject>> circuitBreakerMessageConsumerMap;
 
-    private static String publicHost, privateHost;
+    private String publicHost, privateHost;
 
     public APIManager(Vertx vertx, JsonObject appConfig) {
+        this(vertx, appConfig, null);
+    }
+
+    public APIManager(Vertx vertx, JsonObject appConfig, APIHostProducer apiHostProducer) {
         this.vertx = vertx;
+        this.apiHostProducer = apiHostProducer;
         circuitBreakerMap = new ConcurrentHashMap<>();
         circuitBreakerMessageConsumerMap = new ConcurrentHashMap<>();
 
@@ -96,19 +102,21 @@ public class APIManager {
                 resultHandler, handler, fallback);
     }
 
-    public static Record createInternalApiRecord(String path) {
-        return createInternalApiRecord(path, true);
+    public Record createInternalApiRecord(String name, String path) {
+        return createInternalApiRecord(name, path, true);
     }
 
-    public static Record createInternalApiRecord(String path, boolean ssl) {
-        return HttpEndpoint.createRecord(path, true, privateHost, ssl ? 443 : 80, path, null);
+    public Record createInternalApiRecord(String name, String path, boolean ssl) {
+        return HttpEndpoint.createRecord(name, ssl,
+                apiHostProducer == null ? privateHost : apiHostProducer.getInternalHost(name), ssl ? 443 : 80, path, null);
     }
 
-    public static Record createExternalApiRecord(String path) {
-        return createExternalApiRecord(path, true);
+    public Record createExternalApiRecord(String name, String path) {
+        return createExternalApiRecord(name, path, true);
     }
 
-    public static Record createExternalApiRecord(String path, boolean ssl) {
-        return HttpEndpoint.createRecord(path, true, publicHost, ssl ? 443 : 80, path, null);
+    public Record createExternalApiRecord(String name, String path, boolean ssl) {
+        return HttpEndpoint.createRecord(name, ssl,
+                apiHostProducer == null ? publicHost : apiHostProducer.getExternalHost(name), ssl ? 443 : 80, path, null);
     }
 }
