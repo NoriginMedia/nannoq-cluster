@@ -17,9 +17,12 @@ import io.vertx.servicediscovery.ServiceDiscoveryOptions;
 import io.vertx.servicediscovery.types.EventBusService;
 import io.vertx.servicediscovery.types.HttpEndpoint;
 import io.vertx.serviceproxy.ProxyHelper;
+import io.vertx.serviceproxy.ServiceBinder;
 import io.vertx.serviceproxy.ServiceException;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -50,8 +53,6 @@ public class ServiceManager {
     private ServiceManager(Vertx vertx) {
         ServiceManager.vertx = vertx;
         openDiscovery();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> ServiceManager.getInstance().kill()));
     }
 
     public static ServiceManager getInstance() {
@@ -70,35 +71,63 @@ public class ServiceManager {
         return instance;
     }
 
-    private void kill() {
+    public void kill() {
         System.out.println("Destroying ServiceManager");
+
+        Future<Boolean> waitForKilled = Future.future();
 
         if (serviceDiscovery != null) {
             System.out.println("Unpublishing all records...");
 
-            registeredRecords.forEach(record ->
-                    serviceDiscovery.unpublish(record.getRegistration(), unpublishResult ->
-                            System.out.println("Unpublish: " + record.getName() + " : " + unpublishResult.succeeded())));
+            List<Future> unPublishFutures = new ArrayList<>();
 
-            System.out.println("Unregistering all services...");
+            registeredRecords.forEach(record -> {
+                Future<Boolean> unpublish = Future.future();
 
-            registeredServices.forEach(service -> {
-                ProxyHelper.unregisterService(service);
+                serviceDiscovery.unpublish(record.getRegistration(), unpublishResult -> {
+                    if (unpublishResult.failed()) {
+                        System.out.println("Failed Unpublish: " + record.getName());
 
-                System.out.println("Unregistering " + service.address());
+                        unpublishResult.cause().printStackTrace();
+
+                        unpublish.fail(unpublishResult.cause());
+                    } else {
+                        System.out.println("Unpublished: " + record.getName());
+
+                        unpublish.complete();
+                    }
+                });
+
+                unPublishFutures.add(unpublish);
             });
 
-            System.out.println("Releasing all consumed service objects...");
+            CompositeFuture.all(unPublishFutures).setHandler(res -> {
+                try {
+                    System.out.println("UnPublish complete, Unregistering all services...");
 
-            fetchedServices.values().forEach(service ->
-                    ServiceDiscovery.releaseServiceObject(serviceDiscovery, service));
+                    registeredServices.forEach(service -> {
+                        ProxyHelper.unregisterService(service);
 
-            closeDiscovery();
+                        System.out.println("Unregistering " + service.address());
+                    });
 
-            System.out.println("Discovery Closed!");
+                    System.out.println("Releasing all consumed service objects...");
+
+                    fetchedServices.values().forEach(service ->
+                            ServiceDiscovery.releaseServiceObject(serviceDiscovery, service));
+
+                    closeDiscovery();
+
+                    System.out.println("Discovery Closed!");
+                } finally {
+                    waitForKilled.complete();
+                }
+            });
         } else {
             System.out.println("Discovery is null...");
         }
+
+        while (!waitForKilled.isComplete()) {}
 
         System.out.println("ServiceManager destroyed...");
     }
@@ -243,7 +272,9 @@ public class ServiceManager {
     private <T> Record createRecord(Class<T> type, T service) {
         String serviceName = type.getSimpleName();
 
-        registeredServices.add(ProxyHelper.registerService(type, vertx, service, serviceName));
+        registeredServices.add(new ServiceBinder(vertx)
+                .setAddress(serviceName)
+                .register(type, service));
 
         return EventBusService.createRecord(type.getSimpleName(), serviceName, type);
     }

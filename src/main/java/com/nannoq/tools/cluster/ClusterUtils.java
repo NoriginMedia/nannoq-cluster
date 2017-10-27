@@ -11,12 +11,14 @@ import io.vertx.core.net.JksOptions;
 import org.apache.commons.io.IOUtils;
 
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.CodeSource;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -128,17 +130,23 @@ public class ClusterUtils {
             StringBuilder replacer = new StringBuilder();
             List<String> CLUSTER_MEMBER_LIST = new CopyOnWriteArrayList<>();
 
-            ExecutorService executorService = Executors.newFixedThreadPool(dev ? 254 : 2000);
+            ExecutorService executorService = Executors.newCachedThreadPool();
 
             System.out.println("Initializing Port Scan!");
 
+            List<Runnable> portScanners = new CopyOnWriteArrayList<>();
+
             IntStream.rangeClosed(0, thirdElement).parallel().forEach(baseIpInt ->
-                    IntStream.rangeClosed(0, 254).parallel().forEach(lastIpInt -> executorService.execute(() -> {
+                    IntStream.rangeClosed(0, 254).parallel().forEach(lastIpInt -> portScanners.add(() -> {
+                        System.out.println("Now running scan for: " + baseIpInt + "." + lastIpInt);
+
                         if (CLUSTER_MEMBER_LIST.size() == 0) {
                             scans.incrementAndGet();
 
                             try {
-                                Socket socket = new Socket(subnetBase + baseIpInt + "." + lastIpInt, 5701);
+                                Socket socket = new Socket();
+                                socket.connect(
+                                        new InetSocketAddress(subnetBase + baseIpInt + "." + lastIpInt, 5701), 2000);
 
                                 if (socket.isConnected()) {
                                     CLUSTER_MEMBER_LIST.add("<member>" + subnetBase + baseIpInt + "." +
@@ -156,6 +164,8 @@ public class ClusterUtils {
                             scansComplete.incrementAndGet();
                         }
                     })));
+
+            portScanners.forEach(executorService::submit);
 
             executorService.shutdown();
 
