@@ -30,7 +30,11 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Created by anders on 28/12/2016.
+ * This class defines helpers for operating the cluster. It can produce a member list, sets eventbus SSL, and produces
+ * the modified cluster.xml file as a result of port scanning.
+ *
+ * @author Anders Mikkelsen
+ * @version 17.11.2017
  */
 public class ClusterUtils {
     private static final Logger logger = LoggerFactory.getLogger(ClusterUtils.class.getSimpleName());

@@ -19,7 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * Created by anders on 28/12/2016.
+ * This class defines a wrapper for creating HTTP records that can be published on the eventbus,
+ *
+ * @author Anders Mikkelsen
+ * @version 17.11.2017
  */
 public class APIManager {
     private static final Logger logger = LoggerFactory.getLogger(APIManager.class.getSimpleName());

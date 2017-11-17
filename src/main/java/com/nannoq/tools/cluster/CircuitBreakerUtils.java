@@ -14,7 +14,10 @@ import io.vertx.serviceproxy.ServiceException;
 import java.util.function.Consumer;
 
 /**
- * Created by anders on 30/12/2016.
+ * This class defines various helpers for circuitbreakers.
+ *
+ * @author Anders Mikkelsen
+ * @version 17.11.2017
  */
 public class CircuitBreakerUtils {
     private static final Logger logger = LoggerFactory.getLogger(CircuitBreakerUtils.class.getSimpleName());
@@ -50,6 +53,12 @@ public class CircuitBreakerUtils {
         circuitBreaker.executeAndReport(result, handler);
     }
 
+    /**
+     * For use with debugging circuitbreaker operation.
+     *
+     * @param circuitBreaker CircuitBreaker
+     * @param serviceEvent Message of JsonObject
+     */
     public static void handleCircuitBreakerEvent(CircuitBreaker circuitBreaker, Message<JsonObject> serviceEvent) {
         /*logger.trace("Event for: "  + circuitBreaker.name());
 

@@ -1,6 +1,5 @@
 package com.nannoq.tools.cluster.services;
 
-import com.nannoq.tools.cluster.apis.APIManager;
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.core.*;
 import io.vertx.core.eventbus.Message;
@@ -26,7 +25,10 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Created by anders on 25/12/2016.
+ * This class defines a wrapper for publishing and consuming service declaration interfaces, and HTTP records.
+ *
+ * @author Anders Mikkelsen
+ * @version 17.11.2017
  */
 public class ServiceManager {
     private static final Logger logger = LoggerFactory.getLogger(ServiceManager.class.getSimpleName());
