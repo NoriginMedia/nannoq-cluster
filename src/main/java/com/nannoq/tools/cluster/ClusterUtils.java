@@ -147,8 +147,7 @@ public class ClusterUtils {
                         if (CLUSTER_MEMBER_LIST.size() == 0) {
                             scans.incrementAndGet();
 
-                            try {
-                                Socket socket = new Socket();
+                            try (Socket socket = new Socket()) {
                                 socket.connect(
                                         new InetSocketAddress(subnetBase + baseIpInt + "." + lastIpInt, 5701), 2000);
 
@@ -159,8 +158,6 @@ public class ClusterUtils {
                                     System.out.println("Member detected at " + subnetBase + baseIpInt + "." +
                                             lastIpInt);
                                 }
-
-                                socket.close();
                             } catch (IOException e) {
                                 logger.trace("No connection on: " + subnetBase + baseIpInt + "." + lastIpInt);
                             }

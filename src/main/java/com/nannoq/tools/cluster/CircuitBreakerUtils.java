@@ -1,5 +1,6 @@
 package com.nannoq.tools.cluster;
 
+import com.nannoq.tools.cluster.services.HeartbeatService;
 import com.nannoq.tools.cluster.services.ServiceManager;
 import io.vertx.circuitbreaker.CircuitBreaker;
 import io.vertx.core.AsyncResult;
