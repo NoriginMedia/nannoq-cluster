@@ -6,7 +6,7 @@
 
     <groupId>com.nannoq</groupId>
     <artifactId>cluster</artifactId>
-    <version>1.5.7</version>
+    <version>1.6.0</version>
     <packaging>jar</packaging>
 
     <name>${project.groupId}:${project.artifactId}</name>
@@ -125,6 +125,28 @@
         </dependency>
 
         <!-- Commons -->
+
+        <!-- Logging -->
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.9.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>2.9.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.lmax</groupId>
+            <artifactId>disruptor</artifactId>
+            <version>3.3.4</version>
+        </dependency>
+
+        <!-- Logging -->
 
         <!-- Caching -->
 
