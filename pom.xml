@@ -14,7 +14,8 @@
     <packaging>jar</packaging>
 
     <name>${project.groupId}:${project.artifactId}</name>
-    <description>A collection of classes for managing JWT signing and verification on Vert.x</description>
+    <description>A collection of classes for managing clustering of Vert.x.
+        This includes Cloud and internal data center as well as serice communication.</description>
     <url>https://github.com/AspiroTV/nannoq-cluster</url>
 
     <licenses>
