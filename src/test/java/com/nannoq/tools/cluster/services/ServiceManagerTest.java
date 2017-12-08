@@ -36,7 +36,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import java.util.stream.IntStream;
@@ -51,9 +50,6 @@ public class ServiceManagerTest {
 
     @Rule
     public RunTestOnContext rule = new RunTestOnContext();
-
-    @Rule
-    public TestName name = new TestName();
 
     @Test
     public void publishApi(TestContext testContext) throws Exception {

@@ -24,9 +24,16 @@
 
 package com.nannoq.tools.cluster.apis;
 
+import com.nannoq.tools.cluster.services.ServiceManager;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.unit.Async;
+import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.RunTestOnContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.servicediscovery.Record;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -38,27 +45,56 @@ import static org.junit.Assert.*;
  */
 @RunWith(VertxUnitRunner.class)
 public class APIManagerTest {
-    @Before
-    public void setUp() throws Exception {
-    }
+    @Rule
+    public RunTestOnContext rule = new RunTestOnContext();
 
-    @After
-    public void tearDown() throws Exception {
+    @Test
+    public void performRequestWithCircuitBreaker(TestContext testContext) {
+        ServiceManager.getInstance().publishApi(getApiManager("www.google.com").createExternalApiRecord("TEST", "/"));
+        Async async = testContext.async();
+
+        ServiceManager.getInstance().consumeApi("TEST", res -> {
+            testContext.assertTrue(res.succeeded());
+
+            res.result().get("/").handler(resRes -> {
+                testContext.assertTrue(resRes.statusCode() == 302);
+                async.complete();
+            }).end();
+        });
     }
 
     @Test
-    public void performRequestWithCircuitBreaker() {
+    public void createInternalApiRecord(TestContext testContext) {
+        final Record record = getApiManager().createInternalApiRecord("TEST_API", "/api");
+
+        testContext.assertEquals("TEST_API", record.getName());
     }
 
     @Test
-    public void performRequestWithCircuitBreaker1() {
+    public void createExternalApiRecord(TestContext testContext) {
+        final Record record = getApiManager().createExternalApiRecord("TEST_API", "/api");
+
+        testContext.assertEquals("TEST_API", record.getName());
     }
 
-    @Test
-    public void createInternalApiRecord() {
+    public APIManager getApiManager() {
+        return getApiManager("localhost");
     }
 
-    @Test
-    public void createExternalApiRecord() {
+    public APIManager getApiManager(String host) {
+        return new APIManager(rule.vertx(), new JsonObject()
+                .put("publicHost", host)
+                .put("privateHost", host),
+                new APIHostProducer() {
+                    @Override
+                    public String getInternalHost(String name) {
+                        return host;
+                    }
+
+                    @Override
+                    public String getExternalHost(String name) {
+                        return host;
+                    }
+                });
     }
 }

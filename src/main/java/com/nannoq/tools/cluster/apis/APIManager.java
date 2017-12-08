@@ -28,10 +28,7 @@ package com.nannoq.tools.cluster.apis;
 import com.nannoq.tools.cluster.CircuitBreakerUtils;
 import io.vertx.circuitbreaker.CircuitBreaker;
 import io.vertx.circuitbreaker.CircuitBreakerOptions;
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
+import io.vertx.core.*;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -39,6 +36,8 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.servicediscovery.Record;
 import io.vertx.servicediscovery.types.HttpEndpoint;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -83,12 +82,30 @@ public class APIManager {
         publicHost = appConfig.getString("publicHost");
         privateHost = appConfig.getString("privateHost");
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() ->
-                circuitBreakerMessageConsumerMap.values().forEach(consumer -> {
-                    consumer.unregister();
+        vertx.deployVerticle(new KillVerticle());
+    }
 
-                    logger.info("Unregistered API circuitbreaker Consumer: " + consumer.address());
-                })));
+    private class KillVerticle extends AbstractVerticle {
+        @Override
+        public void stop(Future<Void> stopFuture) throws Exception {
+            List<Future> unRegisterFutures = new ArrayList<>();
+
+            circuitBreakerMessageConsumerMap.values().forEach(consumer -> {
+                Future<Void> future = Future.future();
+                consumer.unregister(future.completer());
+                unRegisterFutures.add(future);
+
+                logger.info("Unregistered API circuitbreaker Consumer: " + consumer.address());
+            });
+
+            CompositeFuture.all(unRegisterFutures).setHandler(res -> {
+                if (res.failed()) {
+                    stopFuture.fail(res.cause());
+                } else {
+                    stopFuture.complete();
+                }
+            });
+        }
     }
 
     private CircuitBreaker prepareCircuitBreaker(String path) {
