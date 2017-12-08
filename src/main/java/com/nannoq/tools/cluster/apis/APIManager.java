@@ -62,6 +62,14 @@ public class APIManager {
 
     private String publicHost, privateHost;
 
+    public APIManager(JsonObject appConfig) {
+        this(Vertx.currentContext().owner(), appConfig, null);
+    }
+
+    public APIManager(JsonObject appConfig, APIHostProducer apiHostProducer) {
+        this(Vertx.currentContext().owner(), appConfig, apiHostProducer);
+    }
+
     public APIManager(Vertx vertx, JsonObject appConfig) {
         this(vertx, appConfig, null);
     }

@@ -22,43 +22,38 @@
  * SOFTWARE.
  */
 
-package com.nannoq.tools.cluster.apis;
+package com.nannoq.tools.cluster.service;
 
-import io.vertx.ext.unit.junit.VertxUnitRunner;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import io.vertx.codegen.annotations.DataObject;
+import io.vertx.core.json.JsonObject;
 
-import static org.junit.Assert.*;
+import static com.nannoq.tools.cluster.service.HeartBeatPOJOConverter.fromJson;
 
 /**
  * @author Anders Mikkelsen
  * @version 17.11.2017
  */
-@RunWith(VertxUnitRunner.class)
-public class APIManagerTest {
-    @Before
-    public void setUp() throws Exception {
+@DataObject(generateConverter = true)
+public class HeartBeatPOJO {
+    private Boolean ping;
+
+    public HeartBeatPOJO(Boolean ping) {
+        this.ping = ping;
     }
 
-    @After
-    public void tearDown() throws Exception {
+    public HeartBeatPOJO(JsonObject heartBeatPojo) {
+        fromJson(heartBeatPojo, this);
     }
 
-    @Test
-    public void performRequestWithCircuitBreaker() {
+    public JsonObject toJson() {
+        return JsonObject.mapFrom(this);
     }
 
-    @Test
-    public void performRequestWithCircuitBreaker1() {
+    public Boolean getPing() {
+        return ping;
     }
 
-    @Test
-    public void createInternalApiRecord() {
-    }
-
-    @Test
-    public void createExternalApiRecord() {
+    public void setPing(Boolean ping) {
+        this.ping = ping;
     }
 }

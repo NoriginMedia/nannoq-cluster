@@ -24,42 +24,119 @@
 
 package com.nannoq.tools.cluster.services;
 
+import com.nannoq.tools.cluster.apis.APIHostProducer;
+import com.nannoq.tools.cluster.apis.APIManager;
+import com.nannoq.tools.cluster.service.HeartBeatServiceImpl;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.unit.Async;
+import io.vertx.ext.unit.TestContext;
+import io.vertx.ext.unit.junit.RunTestOnContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import org.junit.After;
-import org.junit.Before;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-import static org.junit.Assert.*;
+import java.util.stream.IntStream;
 
 /**
- * User: anders
- * Date: 05.12.17 21:13
+ * @author Anders Mikkelsen
+ * @version 17.11.2017
  */
 @RunWith(VertxUnitRunner.class)
 public class ServiceManagerTest {
+    private static final Logger logger = LogManager.getLogger(ServiceManagerTest.class.getSimpleName());
 
-    @Before
-    public void setUp() throws Exception {
-    }
+    @Rule
+    public RunTestOnContext rule = new RunTestOnContext();
 
-    @After
-    public void tearDown() throws Exception {
+    @Rule
+    public TestName name = new TestName();
+
+    @Test
+    public void publishApi(TestContext testContext) throws Exception {
+        ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
+        ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertSuccess());
     }
 
     @Test
-    public void publishApi() {
+    public void unPublishApi(TestContext testContext) throws Exception {
+        ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
+        ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertSuccess());
+        ServiceManager.getInstance().unPublishApi("SOME_API", testContext.asyncAssertSuccess());
+        ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertFailure());
     }
 
     @Test
-    public void publishService() {
+    public void consumeApi(TestContext testContext) throws Exception {
+        ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
+
+        IntStream.range(0, 100).parallel().forEach(i -> {
+            Async async = testContext.async();
+
+            ServiceManager.getInstance().consumeApi("SOME_API", apiRes -> {
+                if (apiRes.failed()) {
+                    testContext.fail(apiRes.cause());
+                } else {
+                    async.complete();
+                }
+            });
+        });
     }
 
     @Test
-    public void consumeApi() {
+    public void publishService(TestContext testContext) throws Exception {
+        ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl());
+        ServiceManager.getInstance().consumeService(HeartbeatService.class, testContext.asyncAssertSuccess());
     }
 
     @Test
-    public void consumeService() {
+    public void unPublishService(TestContext testContext) throws Exception {
+        ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl());
+        ServiceManager.getInstance().consumeService(HeartbeatService.class, testContext.asyncAssertSuccess());
+        ServiceManager.getInstance().unPublishService(HeartbeatService.class, testContext.asyncAssertSuccess());
+        ServiceManager.getInstance().consumeService(HeartbeatService.class, testContext.asyncAssertFailure());
+    }
+
+    @Test
+    public void consumeService(TestContext testContext) throws Exception {
+        ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl());
+
+        IntStream.range(0, 100).parallel().forEach(i -> {
+            Async async = testContext.async();
+
+            ServiceManager.getInstance().consumeService(HeartbeatService.class, res -> {
+                if (res.failed()) {
+                    testContext.fail(res.cause());
+                } else {
+                    res.result().ping(pingRes -> {
+                        if (pingRes.failed()) {
+                            testContext.fail(pingRes.cause());
+                        } else {
+                            async.complete();
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    public APIManager getApiManager() {
+        return new APIManager(rule.vertx(), new JsonObject()
+                .put("publicHost", "localhost")
+                .put("privateHost", "localhost"),
+                new APIHostProducer() {
+                    @Override
+                    public String getInternalHost(String name) {
+                        return "localhost";
+                    }
+
+                    @Override
+                    public String getExternalHost(String name) {
+                        return "localhost";
+                    }
+                });
     }
 }

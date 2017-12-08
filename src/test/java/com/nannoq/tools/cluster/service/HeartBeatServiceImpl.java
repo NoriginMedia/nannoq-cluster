@@ -22,43 +22,22 @@
  * SOFTWARE.
  */
 
-package com.nannoq.tools.cluster.apis;
+package com.nannoq.tools.cluster.service;
 
-import io.vertx.ext.unit.junit.VertxUnitRunner;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import static org.junit.Assert.*;
+import com.nannoq.tools.cluster.services.HeartbeatService;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Future;
+import io.vertx.core.Handler;
 
 /**
  * @author Anders Mikkelsen
  * @version 17.11.2017
  */
-@RunWith(VertxUnitRunner.class)
-public class APIManagerTest {
-    @Before
-    public void setUp() throws Exception {
-    }
+public class HeartBeatServiceImpl implements HeartbeatService {
+    @Override
+    public HeartbeatService ping(Handler<AsyncResult<Boolean>> resultHandler) {
+        resultHandler.handle(Future.succeededFuture(Boolean.TRUE));
 
-    @After
-    public void tearDown() throws Exception {
-    }
-
-    @Test
-    public void performRequestWithCircuitBreaker() {
-    }
-
-    @Test
-    public void performRequestWithCircuitBreaker1() {
-    }
-
-    @Test
-    public void createInternalApiRecord() {
-    }
-
-    @Test
-    public void createExternalApiRecord() {
+        return this;
     }
 }

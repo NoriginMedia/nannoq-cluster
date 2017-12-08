@@ -30,7 +30,7 @@
             <AppenderRef ref="vertx_console" />
         </AsyncRoot>
 
-        <AsyncLogger name="com.hazelcast" level="SEVERE">
+        <AsyncLogger name="com.hazelcast" level="INFO">
         </AsyncLogger>
     </Loggers>
 </Configuration>

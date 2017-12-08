@@ -50,6 +50,7 @@
         <maven.sources.version>3.0.1</maven.sources.version>
         <maven.javadoc.version>3.0.0-M1</maven.javadoc.version>
         <maven.compiler.version>3.7.0</maven.compiler.version>
+        <maven.helper.version>3.0.0</maven.helper.version>
         <maven.gpg.version>1.6</maven.gpg.version>
         <sonatype.staging>1.6.8</sonatype.staging>
     </properties>
@@ -202,6 +203,29 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>${maven.helper.version}</version>
+
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <phase>generate-sources</phase>
+
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+
+                        <configuration>
+                            <sources>
+                                <source>${basedir}/target/test-classes/com/nannoq/cluster/service</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <artifactId>maven-source-plugin</artifactId>
                 <version>${maven.sources.version}</version>

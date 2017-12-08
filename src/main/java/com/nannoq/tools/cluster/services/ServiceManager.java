@@ -33,8 +33,6 @@ import io.vertx.core.http.HttpClient;
 import io.vertx.core.impl.ConcurrentHashSet;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.servicediscovery.Record;
 import io.vertx.servicediscovery.ServiceDiscovery;
 import io.vertx.servicediscovery.ServiceDiscoveryOptions;
@@ -43,10 +41,13 @@ import io.vertx.servicediscovery.types.HttpEndpoint;
 import io.vertx.serviceproxy.ProxyHelper;
 import io.vertx.serviceproxy.ServiceBinder;
 import io.vertx.serviceproxy.ServiceException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -56,7 +57,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @version 17.11.2017
  */
 public class ServiceManager {
-    private static final Logger logger = LoggerFactory.getLogger(ServiceManager.class.getSimpleName());
+    private static final Logger logger = LogManager.getLogger(ServiceManager.class.getSimpleName());
 
     private static final String NANNOQ_SERVICE_ANNOUNCE_ADDRESS = "com.nannoq.services.manager.announce";
     private static final String NANNOQ_SERVICE_SERVICE_NAME = "nannoq-service-manager-service-discovery";
@@ -65,21 +66,26 @@ public class ServiceManager {
     private static final int INTERNAL_ERROR = 500;
 
     private ServiceDiscovery serviceDiscovery;
-    private static ConcurrentHashSet<MessageConsumer<JsonObject>> registeredServices = new ConcurrentHashSet<>();
-    private static ConcurrentHashSet<Record> registeredRecords = new ConcurrentHashSet<>();
-    private static ConcurrentHashMap<String, Object> fetchedServices = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, MessageConsumer<JsonObject>> registeredServices = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, Record> registeredRecords = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, Object> fetchedServices = new ConcurrentHashMap<>();
 
-    private static Vertx vertx;
+    private Vertx vertx;
     private static ServiceManager instance = null;
-    private static MessageConsumer<JsonObject> serviceAnnounceConsumer;
+    private MessageConsumer<JsonObject> serviceAnnounceConsumer;
 
     private ServiceManager() {
         this(Vertx.currentContext().owner());
     }
 
     private ServiceManager(Vertx vertx) {
-        ServiceManager.vertx = vertx;
+        this.vertx = vertx;
         openDiscovery();
+        startServiceManagerKillVerticle();
+    }
+
+    private void startServiceManagerKillVerticle() {
+        vertx.deployVerticle(new KillVerticle());
     }
 
     public static ServiceManager getInstance() {
@@ -98,65 +104,79 @@ public class ServiceManager {
         return instance;
     }
 
-    public void kill() {
-        System.out.println("Destroying ServiceManager");
+    private class KillVerticle extends AbstractVerticle {
+        @Override
+        public void stop(Future<Void> stopFuture) throws Exception {
+            logger.info("Destroying ServiceManager");
 
-        Future<Boolean> waitForKilled = Future.future();
+            if (serviceDiscovery != null) {
+                logger.info("Unpublishing all records...");
 
-        if (serviceDiscovery != null) {
-            System.out.println("Unpublishing all records...");
+                List<Future> unPublishFutures = new ArrayList<>();
 
-            List<Future> unPublishFutures = new ArrayList<>();
+                registeredRecords.forEach((k, v) -> {
+                    Future<Boolean> unpublish = Future.future();
 
-            registeredRecords.forEach(record -> {
-                Future<Boolean> unpublish = Future.future();
+                    serviceDiscovery.unpublish(v.getRegistration(), unpublishResult -> {
+                        if (unpublishResult.failed()) {
+                            logger.info("Failed Unpublish: " + v.getName(), unpublishResult.cause());
 
-                serviceDiscovery.unpublish(record.getRegistration(), unpublishResult -> {
-                    if (unpublishResult.failed()) {
-                        System.out.println("Failed Unpublish: " + record.getName());
+                            unpublish.fail(unpublishResult.cause());
+                        } else {
+                            logger.info("Unpublished: " + v.getName());
 
-                        unpublishResult.cause().printStackTrace();
-
-                        unpublish.fail(unpublishResult.cause());
-                    } else {
-                        System.out.println("Unpublished: " + record.getName());
-
-                        unpublish.complete();
-                    }
-                });
-
-                unPublishFutures.add(unpublish);
-            });
-
-            CompositeFuture.all(unPublishFutures).setHandler(res -> {
-                try {
-                    System.out.println("UnPublish complete, Unregistering all services...");
-
-                    registeredServices.forEach(service -> {
-                        ProxyHelper.unregisterService(service);
-
-                        System.out.println("Unregistering " + service.address());
+                            unpublish.complete();
+                        }
                     });
 
-                    System.out.println("Releasing all consumed service objects...");
+                    unPublishFutures.add(unpublish);
+                });
 
-                    fetchedServices.values().forEach(service ->
-                            ServiceDiscovery.releaseServiceObject(serviceDiscovery, service));
+                CompositeFuture.all(unPublishFutures).setHandler(res -> {
+                    try {
+                        registeredRecords.clear();
 
-                    closeDiscovery();
+                        logger.info("UnPublish complete, Unregistering all services...");
 
-                    System.out.println("Discovery Closed!");
-                } finally {
-                    waitForKilled.complete();
-                }
-            });
-        } else {
-            System.out.println("Discovery is null...");
+                        registeredServices.forEach((k, v) -> {
+                            new ServiceBinder(vertx).setAddress(k).unregister(v);
+
+                            logger.info("Unregistering " + v.address());
+                        });
+
+                        registeredServices.clear();
+
+                        logger.info("Releasing all consumed service objects...");
+
+                        fetchedServices.values().forEach(service ->
+                                ServiceDiscovery.releaseServiceObject(serviceDiscovery, service));
+
+                        fetchedServices.clear();
+
+                        closeDiscovery(unRegisterRes -> {
+                            serviceAnnounceConsumer = null;
+
+                            logger.info("Discovery Closed!");
+
+                            instance = null;
+                            stopFuture.tryComplete();
+
+                            logger.info("ServiceManager destroyed...");
+                        });
+                    } finally {
+                        instance = null;
+                        stopFuture.tryComplete();
+
+                        logger.info("ServiceManager destroyed...");
+                    }
+                });
+            } else {
+                logger.info("Discovery is null...");
+
+                instance = null;
+                stopFuture.tryComplete();
+            }
         }
-
-        while (!waitForKilled.isComplete()) {}
-
-        System.out.println("ServiceManager destroyed...");
     }
 
     @Fluent
@@ -171,6 +191,22 @@ public class ServiceManager {
     }
 
     @Fluent
+    public ServiceManager unPublishApi(@Nonnull String name,
+                                       @Nonnull Handler<AsyncResult<Void>> resultHandler) {
+        Object existingService = fetchedServices.get(name);
+
+        if (existingService != null) {
+            ServiceDiscovery.releaseServiceObject(serviceDiscovery, existingService);
+        }
+
+        fetchedServices.remove(name);
+
+        serviceDiscovery.unpublish(registeredRecords.get(name).getRegistration(), resultHandler);
+
+        return this;
+    }
+
+    @Fluent
     public <T> ServiceManager publishService(@Nonnull Class<T> type, @Nonnull T service) {
         return publishService(createRecord(type, service), this::handlePublishResult);
     }
@@ -182,9 +218,30 @@ public class ServiceManager {
     }
 
     @Fluent
-    public ServiceManager consumeApi(@Nonnull String path,
+    public <T> ServiceManager unPublishService(@Nonnull Class<T> type,
+                                               @Nonnull Handler<AsyncResult<Void>> resultHandler) {
+        String serviceName = type.getSimpleName();
+        Object existingService = fetchedServices.get(serviceName);
+
+        new ServiceBinder(vertx)
+                .setAddress(serviceName)
+                .unregister(registeredServices.get(serviceName));
+
+        if (existingService != null) {
+            ServiceDiscovery.releaseServiceObject(serviceDiscovery, existingService);
+        }
+
+        fetchedServices.remove(serviceName);
+
+        serviceDiscovery.unpublish(registeredRecords.get(serviceName).getRegistration(), resultHandler);
+
+        return this;
+    }
+
+    @Fluent
+    public ServiceManager consumeApi(@Nonnull String name,
                                      @Nonnull Handler<AsyncResult<HttpClient>> resultHandler) {
-        return getApi(path, resultHandler);
+        return getApi(name, resultHandler);
     }
 
     @Fluent
@@ -228,34 +285,33 @@ public class ServiceManager {
         }
     }
 
-    private void closeDiscovery() {
+    private void closeDiscovery(Handler<AsyncResult<Void>> resultHandler) {
         if (serviceDiscovery != null) serviceDiscovery.close();
         serviceDiscovery = null;
 
         logger.debug("Unregistering Service Event Listener...");
 
-        if (serviceAnnounceConsumer != null) serviceAnnounceConsumer.unregister();
-        serviceAnnounceConsumer = null;
+        if (serviceAnnounceConsumer != null) serviceAnnounceConsumer.unregister(resultHandler);
     }
 
-    private ServiceManager getApi(String path, Handler<AsyncResult<HttpClient>> resultHandler) {
-        logger.debug("Getting API: " + path);
+    private ServiceManager getApi(String name, Handler<AsyncResult<HttpClient>> resultHandler) {
+        logger.debug("Getting API: " + name);
 
-        Object existingService = fetchedServices.get(path);
+        Object existingService = fetchedServices.get(name);
 
         if (existingService != null) {
             logger.debug("Returning fetched Api...");
 
             resultHandler.handle(Future.succeededFuture((HttpClient) existingService));
         } else {
-            HttpEndpoint.getClient(serviceDiscovery, new JsonObject().put("name", path), ar -> {
+            HttpEndpoint.getClient(serviceDiscovery, new JsonObject().put("name", name), ar -> {
                 if (ar.failed()) {
                     logger.error("Unable to fetch API...");
 
                     resultHandler.handle(ServiceException.fail(404, "API not found..."));
                 } else {
                     HttpClient client = ar.result();
-                    fetchedServices.put(path, client);
+                    fetchedServices.put(name, client);
 
                     resultHandler.handle(Future.succeededFuture(client));
                 }
@@ -299,11 +355,11 @@ public class ServiceManager {
     private <T> Record createRecord(Class<T> type, T service) {
         String serviceName = type.getSimpleName();
 
-        registeredServices.add(new ServiceBinder(vertx)
+        registeredServices.put(serviceName, new ServiceBinder(vertx)
                 .setAddress(serviceName)
                 .register(type, service));
 
-        return EventBusService.createRecord(type.getSimpleName(), serviceName, type);
+        return EventBusService.createRecord(serviceName, serviceName, type);
     }
 
     private ServiceManager publishService(@Nonnull Record record, @Nonnull Handler<AsyncResult<Record>> resultHandler) {
@@ -318,7 +374,7 @@ public class ServiceManager {
                 resultHandler.handle(ServiceException.fail(INTERNAL_ERROR, ar.cause().getMessage()));
             } else {
                 Record publishedRecord = ar.result();
-                registeredRecords.add(publishedRecord);
+                registeredRecords.put(record.getName(), publishedRecord);
 
                 logger.debug("Successful publish of: " +
                         publishedRecord.getName() + " to " +

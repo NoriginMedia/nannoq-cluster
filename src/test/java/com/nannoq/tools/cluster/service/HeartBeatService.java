@@ -22,43 +22,25 @@
  * SOFTWARE.
  */
 
-package com.nannoq.tools.cluster.apis;
+package com.nannoq.tools.cluster.service;
 
-import io.vertx.ext.unit.junit.VertxUnitRunner;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import static org.junit.Assert.*;
+import io.vertx.codegen.annotations.ProxyGen;
+import io.vertx.codegen.annotations.VertxGen;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.serviceproxy.ProxyHelper;
 
 /**
  * @author Anders Mikkelsen
  * @version 17.11.2017
  */
-@RunWith(VertxUnitRunner.class)
-public class APIManagerTest {
-    @Before
-    public void setUp() throws Exception {
+@ProxyGen
+@VertxGen
+public interface HeartBeatService {
+    static HeartBeatService createProxy(Vertx vertx, String address) {
+        return ProxyHelper.createProxy(HeartBeatService.class, vertx, address);
     }
 
-    @After
-    public void tearDown() throws Exception {
-    }
-
-    @Test
-    public void performRequestWithCircuitBreaker() {
-    }
-
-    @Test
-    public void performRequestWithCircuitBreaker1() {
-    }
-
-    @Test
-    public void createInternalApiRecord() {
-    }
-
-    @Test
-    public void createExternalApiRecord() {
-    }
+    void ping(Handler<AsyncResult<HeartBeatPOJO>> pingHandler);
 }
