@@ -28,12 +28,12 @@ import com.nannoq.tools.cluster.apis.APIHostProducer;
 import com.nannoq.tools.cluster.apis.APIManager;
 import com.nannoq.tools.cluster.service.HeartBeatServiceImpl;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.RunTestOnContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,7 +46,7 @@ import java.util.stream.IntStream;
  */
 @RunWith(VertxUnitRunner.class)
 public class ServiceManagerTest {
-    private static final Logger logger = LogManager.getLogger(ServiceManagerTest.class.getSimpleName());
+    private static final Logger logger = LoggerFactory.getLogger(ServiceManagerTest.class.getSimpleName());
 
     @Rule
     public RunTestOnContext rule = new RunTestOnContext();
