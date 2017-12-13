@@ -25,7 +25,7 @@
 <Configuration>
     <Appenders>
         <RollingRandomAccessFile name="vertx_logs_file"
-                                 fileName="target/logs/vertx-base-test.log"
+                                 fileName="target/logs/vertx-base-dev.log"
                                  filePattern="log/vertx/$${date:yyyy-MM}/vertx-nannoq-base%d{MM-dd-yyyy}-%i.log.gz">
             <PatternLayout pattern="[%p] %d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %c{1} - %msg%n"/>
 
