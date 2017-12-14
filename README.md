@@ -48,7 +48,7 @@ dependencies {
 
 ### Implementation and Use
 
-Please consult the [Wiki](https://github.com/mikand13/nannoq-cluster/wiki) for guides on implementations use.
+Please consult the [Wiki](https://github.com/mikand13/nannoq-cluster/wiki) for guides on implementations and use.
 
 ## Contributing
 
