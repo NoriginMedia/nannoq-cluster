@@ -2,6 +2,10 @@
 
 nannoq-cluster is a collection of classes for managing services and API's in clustered Vert.x environments as well as helpers for clustering.
 
+Main features:
+ - ServiceManager (Manage services and API's easily across a vertx cluster)
+ - ApiManager (Creates Http Records for the ServiceManager)
+
 ### Prerequisites
 
 Vert.x >= 3.5.0
@@ -26,7 +30,7 @@ mvn clean verify -Dgpg.skip=true
 
 First install with either Maven:
 
-```
+```xml
 <dependency>
     <groupId>com.nannoq</groupId>
     <artifactId>cluster</artifactId>
@@ -36,11 +40,15 @@ First install with either Maven:
 
 or Gradle:
 
-```
+```groovy
 dependencies {
     compile group: 'nannoq.com:cluster:1.0.0'
 }
 ```
+
+### Implementation and Use
+
+Please consult the [Wiki](https://github.com/mikand13/nannoq-cluster/wiki) for guides on implementations use.
 
 ## Contributing
 
