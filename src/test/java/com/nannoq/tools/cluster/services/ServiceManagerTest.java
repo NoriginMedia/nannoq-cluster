@@ -27,6 +27,7 @@ package com.nannoq.tools.cluster.services;
 import com.nannoq.tools.cluster.apis.APIHostProducer;
 import com.nannoq.tools.cluster.apis.APIManager;
 import com.nannoq.tools.cluster.service.HeartBeatServiceImpl;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -85,7 +86,9 @@ public class ServiceManagerTest {
     @Test
     public void publishService(TestContext testContext) throws Exception {
         ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl());
+        ServiceManager.getInstance().publishService(HeartbeatService.class, "SOME_ADDRESS", new HeartBeatServiceImpl());
         ServiceManager.getInstance().consumeService(HeartbeatService.class, testContext.asyncAssertSuccess());
+        ServiceManager.getInstance().consumeService(HeartbeatService.class, "SOME_ADDRESS", testContext.asyncAssertSuccess());
     }
 
     @Test
@@ -99,24 +102,31 @@ public class ServiceManagerTest {
     @Test
     public void consumeService(TestContext testContext) throws Exception {
         ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl());
+        ServiceManager.getInstance().publishService(HeartbeatService.class, "SOME_ADDRESS", new HeartBeatServiceImpl());
 
         IntStream.range(0, 100).parallel().forEach(i -> {
             Async async = testContext.async();
+            Async secondAsync = testContext.async();
 
-            ServiceManager.getInstance().consumeService(HeartbeatService.class, res -> {
-                if (res.failed()) {
-                    testContext.fail(res.cause());
+            ServiceManager.getInstance().consumeService(HeartbeatService.class, res ->
+                    checkService(testContext, async, res));
+            ServiceManager.getInstance().consumeService(HeartbeatService.class, "SOME_ADDRESS", res ->
+                    checkService(testContext, secondAsync, res));
+        });
+    }
+
+    public void checkService(TestContext testContext, Async async, AsyncResult<HeartbeatService> res) {
+        if (res.failed()) {
+            testContext.fail(res.cause());
+        } else {
+            res.result().ping(pingRes -> {
+                if (pingRes.failed()) {
+                    testContext.fail(pingRes.cause());
                 } else {
-                    res.result().ping(pingRes -> {
-                        if (pingRes.failed()) {
-                            testContext.fail(pingRes.cause());
-                        } else {
-                            async.complete();
-                        }
-                    });
+                    async.complete();
                 }
             });
-        });
+        }
     }
 
     public APIManager getApiManager() {

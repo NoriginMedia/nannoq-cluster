@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Anders Mikkelsen
  * @version 17.11.2017
  */
+@SuppressWarnings("UnusedReturnValue")
 public class ServiceManager {
     private static final Logger logger = LoggerFactory.getLogger(ServiceManager.class.getSimpleName());
 
@@ -209,15 +210,45 @@ public class ServiceManager {
     }
 
     @Fluent
+    public <T> ServiceManager publishService(@Nonnull Class<T> type, @Nonnull String customName, @Nonnull T service) {
+        return publishService(createRecord(customName, type, service), this::handlePublishResult);
+    }
+
+    @Fluent
     public <T> ServiceManager publishService(@Nonnull Class<T> type, @Nonnull T service,
                                              @Nonnull Handler<AsyncResult<Record>> resultHandler) {
         return publishService(createRecord(type, service), resultHandler);
     }
 
     @Fluent
+    public <T> ServiceManager publishService(@Nonnull Class<T> type, @Nonnull String customName, @Nonnull T service,
+                                             @Nonnull Handler<AsyncResult<Record>> resultHandler) {
+        return publishService(createRecord(customName, type, service), resultHandler);
+    }
+
+    @Fluent
+    public <T> ServiceManager unPublishService(@Nonnull Class<T> type) {
+        String serviceName = type.getSimpleName();
+
+        return unPublishService(serviceName);
+    }
+
+    @Fluent
+    public ServiceManager unPublishService(@Nonnull String serviceName) {
+        return unPublishService(serviceName, res -> logger.info("Unpublish res: " + res.succeeded()));
+    }
+
+    @Fluent
     public <T> ServiceManager unPublishService(@Nonnull Class<T> type,
                                                @Nonnull Handler<AsyncResult<Void>> resultHandler) {
         String serviceName = type.getSimpleName();
+
+        return unPublishService(serviceName, resultHandler);
+    }
+
+    @Fluent
+    public ServiceManager unPublishService(@Nonnull String serviceName,
+                                           @Nonnull Handler<AsyncResult<Void>> resultHandler) {
         Object existingService = fetchedServices.get(serviceName);
 
         new ServiceBinder(vertx)
@@ -243,7 +274,13 @@ public class ServiceManager {
 
     @Fluent
     public <T> ServiceManager consumeService(@Nonnull Class<T> type, @Nonnull Handler<AsyncResult<T>> resultHandler) {
-        return getService(type, resultHandler);
+        return consumeService(type, type.getSimpleName(), resultHandler);
+    }
+
+    @Fluent
+    public <T> ServiceManager consumeService(@Nonnull Class<T> type, @Nonnull String customName,
+                                             @Nonnull Handler<AsyncResult<T>> resultHandler) {
+        return getService(type, customName, resultHandler);
     }
 
     private void openDiscovery() {
@@ -318,11 +355,15 @@ public class ServiceManager {
         return this;
     }
 
-    @SuppressWarnings("unchecked")
     private <T> ServiceManager getService(Class<T> type, Handler<AsyncResult<T>> resultHandler) {
-        logger.debug("Getting service: " + type.getSimpleName());
+        return getService(type, type.getSimpleName(), resultHandler);
+    }
 
-        Object existingService = fetchedServices.get(type.getSimpleName());
+    @SuppressWarnings("unchecked")
+    private <T> ServiceManager getService(Class<T> type, String serviceName, Handler<AsyncResult<T>> resultHandler) {
+        logger.debug("Getting service: " + serviceName);
+
+        Object existingService = fetchedServices.get(serviceName);
 
         if (existingService != null) {
             logger.debug("Returning fetched service...");
@@ -331,13 +372,13 @@ public class ServiceManager {
         } else {
             EventBusService.getProxy(serviceDiscovery, type, ar -> {
                 if (ar.failed()) {
-                    logger.error("ERROR: Unable to get service for " + type.getSimpleName());
+                    logger.error("ERROR: Unable to get service for " + serviceName);
 
                     resultHandler.handle(ServiceException.fail(NOT_FOUND,
-                            "Unable to get service for " + type.getSimpleName() + " : " + ar.cause()));
+                            "Unable to get service for " + serviceName + " : " + ar.cause()));
                 } else {
                     T service = ar.result();
-                    fetchedServices.put(type.getSimpleName(), service);
+                    fetchedServices.put(serviceName, service);
 
                     logger.debug("Successful fetch of: " + service.getClass().getSimpleName());
 
@@ -350,8 +391,10 @@ public class ServiceManager {
     }
 
     private <T> Record createRecord(Class<T> type, T service) {
-        String serviceName = type.getSimpleName();
+        return createRecord(type.getSimpleName(), type, service);
+    }
 
+    private <T> Record createRecord(String serviceName, Class<T> type, T service) {
         registeredServices.put(serviceName, new ServiceBinder(vertx)
                 .setAddress(serviceName)
                 .register(type, service));
