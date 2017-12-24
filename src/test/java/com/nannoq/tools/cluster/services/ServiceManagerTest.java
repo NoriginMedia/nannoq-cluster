@@ -35,8 +35,11 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.RunTestOnContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import java.util.stream.IntStream;
@@ -52,6 +55,19 @@ public class ServiceManagerTest {
     @Rule
     public RunTestOnContext rule = new RunTestOnContext();
 
+    @Rule
+    public TestName name = new TestName();
+
+    @Before
+    public void setUp(TestContext testContext) throws Exception {
+        logger.info("Setup: " + name.getMethodName());
+    }
+
+    @After
+    public void tearDown(TestContext testContext) throws Exception {
+        logger.info("Teardown " + name.getMethodName());
+    }
+
     @Test
     public void publishApi(TestContext testContext) throws Exception {
         ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
@@ -60,10 +76,15 @@ public class ServiceManagerTest {
 
     @Test
     public void unPublishApi(TestContext testContext) throws Exception {
-        ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
-        ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertSuccess());
-        ServiceManager.getInstance().unPublishApi("SOME_API", testContext.asyncAssertSuccess());
-        ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertFailure());
+        Async async = testContext.async();
+
+        ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"), rec -> {
+            ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertSuccess());
+            ServiceManager.getInstance().unPublishApi(rec.result(), testContext.asyncAssertSuccess());
+            ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertFailure());
+
+            async.complete();
+        });
     }
 
     @Test
@@ -93,10 +114,12 @@ public class ServiceManagerTest {
 
     @Test
     public void unPublishService(TestContext testContext) throws Exception {
-        ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl());
-        ServiceManager.getInstance().consumeService(HeartbeatService.class, testContext.asyncAssertSuccess());
-        ServiceManager.getInstance().unPublishService(HeartbeatService.class, testContext.asyncAssertSuccess());
-        ServiceManager.getInstance().consumeService(HeartbeatService.class, testContext.asyncAssertFailure());
+        Async async = testContext.async();
+
+        ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl(), rec ->
+                ServiceManager.getInstance().consumeService(HeartbeatService.class, conRes ->
+                        ServiceManager.getInstance().unPublishService(HeartbeatService.class, rec.result(), unRes ->
+                                ServiceManager.getInstance().consumeService(HeartbeatService.class, lastRes -> async.complete()))));
     }
 
     @Test
