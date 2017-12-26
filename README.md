@@ -1,5 +1,7 @@
 # Nannoq Cluster
 
+[![Build Status](https://www.tomrom.net/buildStatus/icon?job=nannoq-cluster/develop)](https://www.tomrom.net/job/nannoq-cluster/job/develop/)
+
 nannoq-cluster is a collection of classes for managing services and API's in clustered Vert.x environments as well as helpers for clustering.
 
 Main features:
@@ -31,18 +33,40 @@ mvn clean verify -Dgpg.skip=true
 First install with either Maven:
 
 ```xml
+<repositories>
+    <repository>
+        <id>ossrh</id>
+        <name>OSSRH Snapshots</name>
+        <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+
+        <releases>
+            <enabled>false</enabled>
+        </releases>
+
+        <snapshots>
+            <enabled>true</enabled>
+            <updatePolicy>always</updatePolicy>
+            <checksumPolicy>fail</checksumPolicy>
+        </snapshots>
+    </repository>
+</repositories>
+
 <dependency>
     <groupId>com.nannoq</groupId>
     <artifactId>cluster</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2-SNAPSHOT</version>
 </dependency>
 ```
 
 or Gradle:
 
 ```groovy
+repositories {
+    maven { url "http://oss.sonatype.org/content/repositories/snapshots/" }
+}
+
 dependencies {
-    compile group: 'nannoq.com:cluster:1.0.1'
+    compile group: 'nannoq.com:cluster:1.0.2-SNAPSHOT'
 }
 ```
 
