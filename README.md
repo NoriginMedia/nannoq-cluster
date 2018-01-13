@@ -54,7 +54,7 @@ First install with either Maven:
 <dependency>
     <groupId>com.nannoq</groupId>
     <artifactId>cluster</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.4-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -66,7 +66,7 @@ repositories {
 }
 
 dependencies {
-    compile group: 'nannoq.com:cluster:1.0.2-SNAPSHOT'
+    compile group: 'nannoq.com:cluster:1.0.4-SNAPSHOT'
 }
 ```
 
