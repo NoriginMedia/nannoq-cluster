@@ -70,18 +70,18 @@ public class ServiceManagerTest {
 
     @Test
     public void publishApi(TestContext testContext) throws Exception {
-        ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
-        ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertSuccess());
+        ServiceManager.getInstance(rule.vertx()).publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
+        ServiceManager.getInstance(rule.vertx()).consumeApi("SOME_API", testContext.asyncAssertSuccess());
     }
 
     @Test
     public void unPublishApi(TestContext testContext) throws Exception {
         Async async = testContext.async();
 
-        ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"), rec -> {
-            ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertSuccess());
-            ServiceManager.getInstance().unPublishApi(rec.result(), testContext.asyncAssertSuccess());
-            ServiceManager.getInstance().consumeApi("SOME_API", testContext.asyncAssertFailure());
+        ServiceManager.getInstance(rule.vertx()).publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"), rec -> {
+            ServiceManager.getInstance(rule.vertx()).consumeApi("SOME_API", testContext.asyncAssertSuccess());
+            ServiceManager.getInstance(rule.vertx()).unPublishApi(rec.result(), testContext.asyncAssertSuccess());
+            ServiceManager.getInstance(rule.vertx()).consumeApi("SOME_API", testContext.asyncAssertFailure());
 
             async.complete();
         });
@@ -89,12 +89,12 @@ public class ServiceManagerTest {
 
     @Test
     public void consumeApi(TestContext testContext) throws Exception {
-        ServiceManager.getInstance().publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
+        ServiceManager.getInstance(rule.vertx()).publishApi(getApiManager().createExternalApiRecord("SOME_API", "/api"));
 
         IntStream.range(0, 100).parallel().forEach(i -> {
             Async async = testContext.async();
 
-            ServiceManager.getInstance().consumeApi("SOME_API", apiRes -> {
+            ServiceManager.getInstance(rule.vertx()).consumeApi("SOME_API", apiRes -> {
                 if (apiRes.failed()) {
                     testContext.fail(apiRes.cause());
                 } else {
@@ -106,34 +106,34 @@ public class ServiceManagerTest {
 
     @Test
     public void publishService(TestContext testContext) throws Exception {
-        ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl());
-        ServiceManager.getInstance().publishService(HeartbeatService.class, "SOME_ADDRESS", new HeartBeatServiceImpl());
-        ServiceManager.getInstance().consumeService(HeartbeatService.class, testContext.asyncAssertSuccess());
-        ServiceManager.getInstance().consumeService(HeartbeatService.class, "SOME_ADDRESS", testContext.asyncAssertSuccess());
+        ServiceManager.getInstance(rule.vertx()).publishService(HeartbeatService.class, new HeartBeatServiceImpl());
+        ServiceManager.getInstance(rule.vertx()).publishService(HeartbeatService.class, "SOME_ADDRESS", new HeartBeatServiceImpl());
+        ServiceManager.getInstance(rule.vertx()).consumeService(HeartbeatService.class, testContext.asyncAssertSuccess());
+        ServiceManager.getInstance(rule.vertx()).consumeService(HeartbeatService.class, "SOME_ADDRESS", testContext.asyncAssertSuccess());
     }
 
     @Test
     public void unPublishService(TestContext testContext) throws Exception {
         Async async = testContext.async();
 
-        ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl(), rec ->
-                ServiceManager.getInstance().consumeService(HeartbeatService.class, conRes ->
-                        ServiceManager.getInstance().unPublishService(HeartbeatService.class, rec.result(), unRes ->
-                                ServiceManager.getInstance().consumeService(HeartbeatService.class, lastRes -> async.complete()))));
+        ServiceManager.getInstance(rule.vertx()).publishService(HeartbeatService.class, new HeartBeatServiceImpl(), rec ->
+                ServiceManager.getInstance(rule.vertx()).consumeService(HeartbeatService.class, conRes ->
+                        ServiceManager.getInstance(rule.vertx()).unPublishService(HeartbeatService.class, rec.result(), unRes ->
+                                ServiceManager.getInstance(rule.vertx()).consumeService(HeartbeatService.class, lastRes -> async.complete()))));
     }
 
     @Test
     public void consumeService(TestContext testContext) throws Exception {
-        ServiceManager.getInstance().publishService(HeartbeatService.class, new HeartBeatServiceImpl());
-        ServiceManager.getInstance().publishService(HeartbeatService.class, "SOME_ADDRESS", new HeartBeatServiceImpl());
+        ServiceManager.getInstance(rule.vertx()).publishService(HeartbeatService.class, new HeartBeatServiceImpl());
+        ServiceManager.getInstance(rule.vertx()).publishService(HeartbeatService.class, "SOME_ADDRESS", new HeartBeatServiceImpl());
 
         IntStream.range(0, 100).parallel().forEach(i -> {
             Async async = testContext.async();
             Async secondAsync = testContext.async();
 
-            ServiceManager.getInstance().consumeService(HeartbeatService.class, res ->
+            ServiceManager.getInstance(rule.vertx()).consumeService(HeartbeatService.class, res ->
                     checkService(testContext, async, res));
-            ServiceManager.getInstance().consumeService(HeartbeatService.class, "SOME_ADDRESS", res ->
+            ServiceManager.getInstance(rule.vertx()).consumeService(HeartbeatService.class, "SOME_ADDRESS", res ->
                     checkService(testContext, secondAsync, res));
         });
     }
