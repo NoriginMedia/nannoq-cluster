@@ -26,6 +26,7 @@
 package com.nannoq.tools.cluster.services;
 
 import io.vertx.codegen.annotations.Fluent;
+import io.vertx.codegen.annotations.Nullable;
 import io.vertx.core.*;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
@@ -60,6 +61,7 @@ public class ServiceManager {
 
     private static final String NANNOQ_SERVICE_ANNOUNCE_ADDRESS = "com.nannoq.services.manager.announce";
     private static final String NANNOQ_SERVICE_SERVICE_NAME = "nannoq-service-manager-service-discovery";
+    private static final int NANNOQ_SERVICE_DEFAULT_TIMEOUT = 5;
 
     private static final int NOT_FOUND = 404;
     private static final int INTERNAL_ERROR = 500;
@@ -70,11 +72,11 @@ public class ServiceManager {
     private ConcurrentHashMap<String, ConcurrentHashSet<Object>> fetchedServices = new ConcurrentHashMap<>();
 
     private Vertx vertx;
-    private static ServiceManager instance = null;
+    private static Map<Vertx, ServiceManager> instanceMap = new HashMap<>();
     private MessageConsumer<JsonObject> serviceAnnounceConsumer;
 
     private ServiceManager() {
-        this(Vertx.currentContext().owner());
+        throw new IllegalArgumentException("Should never run!");
     }
 
     private ServiceManager(Vertx vertx) {
@@ -88,17 +90,27 @@ public class ServiceManager {
     }
 
     public static ServiceManager getInstance() {
-        if (instance == null) {
-            instance = new ServiceManager();
+        @Nullable
+        Context owner = Vertx.currentContext();
+
+        if (owner == null) {
+            throw new IllegalArgumentException("You are not on a Vert.x context! " +
+                    "If you are using a custom vertx, use overloaded method.");
         }
 
-        return instance;
+        return getInstance(owner.owner());
     }
 
     public static ServiceManager getInstance(Vertx vertx) {
-        if (instance == null) {
-            instance = new ServiceManager(vertx);
+        ServiceManager instance = instanceMap.get(vertx);
+
+        if (instance != null) {
+            return instance;
         }
+
+        instance = new ServiceManager(vertx);
+
+        instanceMap.put(vertx, instance);
 
         return instance;
     }
@@ -157,13 +169,13 @@ public class ServiceManager {
 
                             logger.info("Discovery Closed!");
 
-                            instance = null;
+                            instanceMap.remove(vertx);
                             stopFuture.tryComplete();
 
                             logger.info("ServiceManager destroyed...");
                         });
                     } finally {
-                        instance = null;
+                        instanceMap.remove(vertx);
                         stopFuture.tryComplete();
 
                         logger.info("ServiceManager destroyed...");
@@ -172,7 +184,7 @@ public class ServiceManager {
             } else {
                 logger.info("Discovery is null...");
 
-                instance = null;
+                instanceMap.remove(vertx);
                 stopFuture.tryComplete();
             }
         }
@@ -252,32 +264,40 @@ public class ServiceManager {
     public <T> ServiceManager publishService(@Nonnull Class<T> type, @Nonnull T service) {
         String serviceName = type.getSimpleName();
 
-        return publishService(createRecord(serviceName, type), r -> registeredServices.put(r.getRegistration(), new ServiceBinder(vertx)
-                .setAddress(serviceName)
-                .register(type, service)), this::handlePublishResult);
+        return publishService(createRecord(serviceName, type), r -> registeredServices.put(r.getRegistration(),
+                new ServiceBinder(vertx)
+                        .setTimeoutSeconds(NANNOQ_SERVICE_DEFAULT_TIMEOUT)
+                        .setAddress(serviceName)
+                        .register(type, service)), this::handlePublishResult);
     }
 
     @Fluent
     public <T> ServiceManager publishService(@Nonnull Class<T> type, @Nonnull String customName, @Nonnull T service) {
-        return publishService(createRecord(customName, type), r -> registeredServices.put(r.getRegistration(), new ServiceBinder(vertx)
-                .setAddress(customName)
-                .register(type, service)), this::handlePublishResult);
+        return publishService(createRecord(customName, type), r -> registeredServices.put(r.getRegistration(),
+                new ServiceBinder(vertx)
+                        .setTimeoutSeconds(NANNOQ_SERVICE_DEFAULT_TIMEOUT)
+                        .setAddress(customName)
+                        .register(type, service)), this::handlePublishResult);
     }
 
     @Fluent
     public <T> ServiceManager publishService(@Nonnull Class<T> type, @Nonnull T service,
                                              @Nonnull Handler<AsyncResult<Record>> resultHandler) {
-        return publishService(createRecord(type), r -> registeredServices.put(r.getRegistration(), new ServiceBinder(vertx)
-                .setAddress(type.getSimpleName())
-                .register(type, service)),resultHandler);
+        return publishService(createRecord(type), r -> registeredServices.put(r.getRegistration(),
+                new ServiceBinder(vertx)
+                        .setTimeoutSeconds(NANNOQ_SERVICE_DEFAULT_TIMEOUT)
+                        .setAddress(type.getSimpleName())
+                        .register(type, service)),resultHandler);
     }
 
     @Fluent
     public <T> ServiceManager publishService(@Nonnull Class<T> type, @Nonnull String customName, @Nonnull T service,
                                              @Nonnull Handler<AsyncResult<Record>> resultHandler) {
-        return publishService(createRecord(customName, type), r -> registeredServices.put(r.getRegistration(), new ServiceBinder(vertx)
-                .setAddress(customName)
-                .register(type, service)), resultHandler);
+        return publishService(createRecord(customName, type), r -> registeredServices.put(r.getRegistration(),
+                new ServiceBinder(vertx)
+                        .setTimeoutSeconds(NANNOQ_SERVICE_DEFAULT_TIMEOUT)
+                        .setAddress(customName)
+                        .register(type, service)), resultHandler);
     }
 
     @Fluent
@@ -423,7 +443,7 @@ public class ServiceManager {
             });
         }
 
-        return getInstance();
+        return this;
     }
 
     private <T> Record createRecord(Class<T> type) {
@@ -460,7 +480,7 @@ public class ServiceManager {
             }
         });
 
-        return getInstance();
+        return this;
     }
 
     private void handlePublishResult(AsyncResult<Record> publishResult) {
