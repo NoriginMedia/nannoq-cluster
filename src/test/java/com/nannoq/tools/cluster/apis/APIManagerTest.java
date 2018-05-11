@@ -53,7 +53,7 @@ public class APIManagerTest {
             testContext.assertTrue(res.succeeded());
 
             res.result().get("/").handler(resRes -> {
-                testContext.assertTrue(resRes.statusCode() == 302);
+                testContext.assertTrue(resRes.statusCode() == 200 || resRes.statusCode() == 302);
                 async.complete();
             }).end();
         });
